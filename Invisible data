@@ -1,0 +1,87 @@
+let mic, fft;
+let osc;
+let noiseThreshold = 0.2; // Adjust this threshold to trigger sound based on noise level
+let lastTrigger = 0; // Variable to track the last time a sound was triggered
+let rhythmInterval; // Interval for rhythmic sound
+let playingRhythm = false;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  mic = new p5.AudioIn();
+  mic.start();
+  fft = new p5.FFT();
+  fft.setInput(mic);
+
+  osc = new p5.Oscillator();
+  osc.setType('sine');
+  osc.start();
+  osc.amp(0);
+
+  rhythmInterval = 60000 / 120; // Interval for 120 BPM in milliseconds
+}
+
+function draw() {
+  background(0);
+
+  let spectrum = fft.analyze();
+  let avg = 0;
+  for (let i = 0; i < spectrum.length; i++) {
+    avg += spectrum[i];
+  }
+  avg /= spectrum.length;
+
+  // Map average amplitude to height for the landscape visualization
+  let h = map(avg, 0, 255, height * 0.3, height * 0.7);
+
+  // Display landscape based on noise level
+  fill(100, 255, 100);
+  noStroke();
+  beginShape();
+  for (let x = 0; x < width; x += 10) {
+    vertex(x, h + noise(x * 0.01, frameCount * 0.01) * 50);
+  }
+  vertex(width, height);
+  vertex(0, height);
+  endShape(CLOSE);
+
+  // Check if the average amplitude surpasses the threshold
+  if (avg > noiseThreshold) {
+    playSound(avg); // Function to play sound based on noise level
+    playRhythm(); // Function to play rhythmic sound
+  } else {
+    osc.amp(0, 0.1); // If noise is below threshold, fade out the sound
+    playingRhythm = false;
+  }
+}
+
+function playSound(level) {
+  let freq = map(level, 0, 255, 200, 800); // Map noise level to frequency range
+  osc.freq(freq); // Set oscillator frequency based on noise level
+  osc.amp(0.3); // Set constant amplitude for hum
+}
+
+function playRhythm() {
+  let currentTime = millis();
+  let rhythmPosition = int(currentTime / rhythmInterval) % 4; // Position in a 4/4 measure
+
+  if (rhythmPosition === 0 && !playingRhythm) {
+    osc.amp(0, 0.1); // Short break on every 4th bar
+  } else {
+    osc.amp(0.3); // Constant hum for the rest of the bars
+  }
+
+  if (rhythmPosition === 1 && !playingRhythm) {
+    // Play rhythmic sound only at the start of each measure
+    playingRhythm = true;
+    // Add your rhythmic sound here using p5.sound or other synthesis methods
+    // Example: Add a beep sound at a lower pitch
+    let beep = new p5.Oscillator();
+    beep.setType('sine');
+    beep.freq(220); // Lower frequency for a lower pitch
+    beep.start();
+    beep.amp(0.5);
+    setTimeout(() => {
+      beep.stop();
+    }, 50); // Adjust duration of the beep sound
+  }
+}
